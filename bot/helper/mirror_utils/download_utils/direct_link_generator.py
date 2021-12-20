@@ -20,7 +20,6 @@ from os import popen
 from random import choice
 from urllib.parse import urlparse
 from bs4 import BeautifulSoup
-from js2py import EvalJs
 from lk21.extractors.bypasser import Bypass
 from base64 import standard_b64encode
 
@@ -34,10 +33,8 @@ cookies = {"PHPSESSID": PHPSESSID, "crypt": CRYPT}
 
 def direct_link_generator(link: str):
     """ direct links generator """
-    if not link:
-        raise DirectDownloadLinkException("No links found!")
-    elif 'youtube.com' in link or 'youtu.be' in link:
-        raise DirectDownloadLinkException(f"Use /{BotCommands.WatchCommand} to mirror Youtube link\nUse /{BotCommands.ZipWatchCommand} to make zip of Youtube playlist")
+    if 'youtube.com' in link or 'youtu.be' in link:
+        raise DirectDownloadLinkException(f"ERROR: Use /{BotCommands.WatchCommand} to mirror Youtube link\nUse /{BotCommands.ZipWatchCommand} to make zip of Youtube playlist")
     elif 'zippyshare.com' in link:
         return zippy_share(link)
     elif 'yadi.sk' in link or 'disk.yandex.com' in link:
@@ -71,6 +68,8 @@ def direct_link_generator(link: str):
     elif 'naniplay.nanime.biz' in link:
         return fembed(link)
     elif 'naniplay.com' in link:
+        return fembed(link)
+    elif 'mm9842.com' in link:
         return fembed(link)
     elif 'layarkacaxxi.icu' in link:
         return fembed(link)
@@ -115,7 +114,7 @@ def zippy_share(url: str) -> str:
     except IndexError:
         raise DirectDownloadLinkException("No Zippyshare links found")
     try:
-        base_url = re.search('http.+.zippyshare.com', link).group()
+        base_url = re.search('http.+.zippyshare.com/', link).group()
         response = requests.get(link).content
         pages = BeautifulSoup(response, "lxml")
         try:
@@ -123,12 +122,14 @@ def zippy_share(url: str) -> str:
         except IndexError:
             js_script = pages.find("div", {"class": "right"}).find_all("script")[0]
         js_content = re.findall(r'\.href.=."/(.*?)";', str(js_script))
-        js_content = 'var x = "/' + js_content[0] + '"'
-        evaljs = EvalJs()
-        setattr(evaljs, "x", None)
-        evaljs.execute(js_content)
-        js_content = getattr(evaljs, "x")
-        return base_url + js_content
+        js_content = str(js_content[0]).split('"')
+        n = str(js_script).split('var n = ')[1].split(';')[0].split('%')
+        n = int(n[0]) % int(n[1])
+        b = str(js_script).split('var b = ')[1].split(';')[0].split('%')
+        b = int(b[0]) % int(b[1])
+        z = int(str(js_script).split('var z = ')[1].split(';')[0])
+        math_ = str(n + b + z - 3)
+        return base_url + str(js_content[0]) + math_ + str(js_content[2])
     except IndexError:
         raise DirectDownloadLinkException("ERROR: Can't find download button")
 
@@ -458,7 +459,11 @@ def gdtot(url: str) -> str:
                'accept-language': 'en-IN,en-GB;q=0.9,en-US;q=0.8,en;q=0.7'}
 
     r1 = requests.get(url, headers=headers, cookies=cookies).content
-    s1 = BeautifulSoup(r1, 'html.parser').find('button', id="down").get('onclick').split("'")[1]
+    s1 = BeautifulSoup(r1, 'html.parser').find('button', id="down")
+    if s1 is not None:
+        s1 = s1.get('onclick').split("'")[1]
+    else:
+        raise DirectDownloadLinkException("ERROR: Check Your GDTot Link Maybe Not Found !")
     headers['referer'] = url
     s2 = BeautifulSoup(requests.get(s1, headers=headers, cookies=cookies).content, 'html.parser').find('meta').get('content').split('=',1)[1]
     headers['referer'] = s1
